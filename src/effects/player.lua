@@ -41,6 +41,47 @@ local function TeleportPlayer(newCoords)
     end
 end
 
+---Get gameplay cam offset in World coords
+---@param vOffset vector3
+---@return vector3
+local function GetGameplayCamOffsetInWorldCoords(vOffset)
+    -- https://github.com/gta-chaos-mod/ChaosModV/blob/master/vendor/scripthookv/inc/types.h#L121
+    -- https://github.com/gta-chaos-mod/ChaosModV/blob/master/ChaosMod/Util/Camera.h#L7
+
+    -- Degrees To Radians
+    local deg2Rad = 0.01745329251994329576923690768489
+    -- Radians To Degrees
+    local rad2Deg = 57.295779513082320876798154814105
+
+    local vRot = GetGameplayCamRot(2)
+
+    local rotX = vRot.x / rad2Deg
+    local rotZ = vRot.z / rad2Deg
+    local multXY = math.abs(math.cos(rotX))
+
+    local vForward = vector3(
+            -math.sin(rotZ) * multXY,
+            math.cos(rotZ) * multXY,
+            math.sin(rotX)
+    )
+
+    local fNum1 = math.cos(vRot.y * deg2Rad)
+    local vRight = vector3(
+            fNum1 * math.cos(-vRot.z * deg2Rad),
+            fNum1 * math.sin(vRot.z * deg2Rad),
+            math.sin(-vRot.y * deg2Rad)
+    )
+
+    -- Cross
+    local vUp = vector3(
+            vRight.y * vForward.z - vRight.z * vForward.y,
+            vRight.z * vForward.x - vRight.x * vForward.z,
+            vRight.x * vForward.y - vRight.y * vForward.x
+    )
+
+    return GetGameplayCamCoord() + (vRight * vOffset.x) + (vForward * vOffset.y) + (vUp * vOffset.z)
+end
+
 RegisterNetEvent('Chaos:Player:Aimbot', function(duration)
     local exitMethod = false
     exports.helpers:DisplayMessage("Aimbot")
@@ -61,7 +102,7 @@ RegisterNetEvent('Chaos:Player:Aimbot', function(duration)
 
                 for ped in exports.helpers:EnumeratePeds() do
                     RequestPedVisibilityTracking(ped)
-                    if (ped ~= playerId and IsTrackedPedVisible(ped) and not 
+                    if (ped ~= playerId and IsTrackedPedVisible(ped) and not
                         IsPedDeadOrDying(ped, true) and -- and not IsPedAPlayer(ped)
                         IsTrackedPedVisible(ped)) then
                         local pedCoords = GetEntityCoords(ped)
@@ -334,7 +375,7 @@ RegisterNetEvent('Chaos:Player:Fling', function(duration)
 
         return ToFloat(result)
     end
-    
+
     exports.helpers:DisplayMessage("FLING!")
 
     local playerId = PlayerPedId()
@@ -349,7 +390,7 @@ RegisterNetEvent('Chaos:Player:Fling', function(duration)
     end
 
     ApplyForceToEntityCenterOfMass(
-        flipTarget, 1, 
+        flipTarget, 1,
         GetRandomForce(true), GetRandomForce(true), GetRandomForce(false),
         false, false, true, false
     )
@@ -659,6 +700,205 @@ RegisterNetEvent('Chaos:Player:QuakeFOV', function(duration)
     end)
 end)
 
+RegisterNetEvent('Chaos:Player:Ragdoll', function(duration)
+    exports.helpers:DisplayMessage("Bloop")
+
+    local playerPed = PlayerPedId()
+    ClearPedTasksImmediately(playerPed)
+    SetPedToRagdoll(playerPed, 10000, 10000, 0, true, true, false)
+end)
+
+RegisterNetEvent('Chaos:Player:RagdollOnShot', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Ragdoll when shooting")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        local playerPed = PlayerPedId()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            local _, weaponHash = GetCurrentPedWeapon(playerPed, true)
+            local timeSinceDmg = GetTimeOfLastPedWeaponDamage(playerPed, weaponHash)
+            if timeSinceDmg and GetGameTimer() - timeSinceDmg < 200 then
+                if IsPedInAnyVehicle(playerPed, false) then
+                    ClearPedTasksImmediately(playerPed)
+                end
+
+                SetPedToRagdoll(playerPed, 500, 1000, 0, true, true, false)
+
+                CreateNmMessage(true, 0)
+                GivePedNmMessage(playerPed)
+            end
+
+            Citizen.Wait(0)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Player:RandomClothes', function(duration)
+    exports.helpers:DisplayMessage("Fashion icon!")
+
+    Citizen.CreateThread(function()
+        local playerPed = PlayerPedId()
+        for i = 0, 12 do
+            local drawableAmount = GetNumberOfPedDrawableVariations(playerPed, i)
+            local drawableId = drawableAmount == 0 and 0 or math.random(0, drawableAmount - 1)
+
+            local textureAmount = GetNumberOfPedTextureVariations(playerPed, i, drawableId)
+            local textureId = textureAmount == 0 and 0 or math.random(0, textureAmount - 1)
+
+            SetPedComponentVariation(playerPed, i, drawableId, textureId, math.random(0, 3))
+
+            if i < 4 then
+                local propDrawableAmount = GetNumberOfPedPropDrawableVariations(playerPed, i)
+                local propDrawableId = propDrawableAmount == 0 and 0 or math.random(0, propDrawableAmount - 1)
+
+                local propTextureAmount = GetNumberOfPedPropTextureVariations(playerPed, i, drawableId)
+                local propTextureId = propTextureAmount == 0 and 0 or math.random(0, propTextureAmount - 1)
+
+                SetPedPropIndex(playerPed, i, propDrawableId, propTextureId, true)
+            end
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Player:RandomVehSeat', function(duration)
+    exports.helpers:DisplayMessage("Switch vehicle seats!")
+
+    Citizen.CreateThread(function()
+        local playerPed = PlayerPedId()
+        ---@type Vehicle
+        local playerVehicle
+
+        if IsPedInAnyVehicle(playerPed, false) then
+            playerVehicle = GetVehiclePedIsIn(playerPed, false)
+        else
+            local vehicleArray = {}
+            for vehicle in exports.helpers:EnumerateVehicles() do
+                table.insert(vehicleArray, vehicle)
+            end
+
+            playerVehicle = vehicleArray[math.random(1, #vehicleArray)]
+        end
+
+        local maxSeats = GetVehicleModelNumberOfSeats(GetEntityModel(playerVehicle))
+        ---@type number but not really
+        local randomSeat
+        -- Keep iterating until we reach a conclusion
+        for i = 0, maxSeats do
+            randomSeat = math.random(-1, maxSeats - 2)
+            if IsVehicleSeatFree(playerVehicle, randomSeat) then
+                SetPedIntoVehicle(playerPed, playerVehicle, randomSeat)
+            end
+        end
+
+        if not IsVehicleSeatFree(playerVehicle, randomSeat) then
+            local seatPed = GetPedInVehicleSeat(playerVehicle, randomSeat)
+            ClearPedTasksImmediately(seatPed)
+            Citizen.Wait(0)
+
+            SetPedIntoVehicle(playerPed, playerVehicle, randomSeat)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Player:RocketMan', function(duration)
+    local LAUNCH_TIMER = 5000
+    exports.helpers:DisplayMessage("Elton John?")
+
+    Citizen.CreateThread(function()
+        local playerPed = PlayerPedId()
+
+        ClearPedTasksImmediately(playerPed)
+        SetPedToRagdoll(playerPed, 10000, 10000, 0, true, true, false)
+        GiveWeaponToPed(playerPed, "GADGET_PARACHUTE", 1, true, false)
+
+        local lastTimestamp = GetGameTimer()
+        local launchTimer = LAUNCH_TIMER
+        local beepTimer = LAUNCH_TIMER
+
+        while true do
+            Citizen.Wait(0)
+
+            local currentTimestamp = GetGameTimer()
+            launchTimer = launchTimer - currentTimestamp
+            if launchTimer - lastTimestamp < beepTimer then
+                beepTimer = beepTimer * .8
+
+                UseParticleFxAsset("core")
+                PlaySoundFromEntity(-1, "Beep_Red", playerPed, "DLC_HEIST_HACKING_SNAKE_SOUNDS", true, false)
+                StartParticleFxLoopedOnEntity(
+                        "exp_air_molotov", playerPed,
+                        0., 0., 0.,
+                        0., 0., 0.,
+                        .7, false, false, false
+                )
+                SetEntityVelocity(playerPed, 0., 0., 5.)
+            end
+
+            if launchTimer <= 0 then
+                UseParticleFxAsset("core")
+                StartParticleFxLoopedOnEntity(
+                    "exp_air_rpg", playerPed,
+                    0., 0., 0.,
+                    0., 0., 0.,
+                    .2, false, false, false
+                )
+                StartParticleFxLoopedOnEntity(
+                        "exp_air_molotov", playerPed,
+                        0., 0., 0.,
+                        0., 0., 0.,
+                        5., false, false, false
+                )
+                SetEntityVelocity(playerPed, 0., 0., 100.)
+                break
+            end
+
+            lastTimestamp = currentTimestamp
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Player:RapidFire', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Rapid Fire!")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        local playerPed = PlayerPedId()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            local weaponMatches, weaponHash = GetCurrentPedWeapon(playerPed, true)
+            if weaponMatches and GetWeapontypeGroup(weaponHash) ~= "0xD49321D4" then
+                DisableControlAction(0, 24, true)
+                DisableControlAction(2, 257, true)
+
+                if IsDisabledControlPressed(0, 24) or IsDisabledControlPressed(2, 257) then
+                    local launchPos = GetGameplayCamOffsetInWorldCoords(vector3(0, 0, 0))
+                    local targetPos = GetGameplayCamOffsetInWorldCoords(vector3(0, 10, 0))
+                    local playerPos = GetEntityCoords(playerPed, false)
+
+                    -- Done twice for some reason, so loop
+                    for i = 1, 2 do
+                        ShootSingleBulletBetweenCoords(
+                                launchPos.x, launchPos.y, launchPos.z,
+                                targetPos.x, targetPos.y, targetPos.z,
+                                5, 1, weaponHash, playerPed
+                        )
+                    end
+                end
+            end
+            Citizen.Wait(0)
+        end
+    end)
+end)
+
 RegisterNetEvent('Chaos:Player:SimeonSays', function(duration)
     exports.helpers:DisplayMessage("Simeon Says...")
 
@@ -788,7 +1028,7 @@ RegisterNetEvent('Chaos:Player:VR', function(duration)
         while not HasModelLoaded(playerModel) do
             Citizen.Wait(100)
         end
-        
+
         local playerClone = CreatePed(
             pedType, playerModel,
             playerCoords.x, playerCoords.y, playerCoords.z,
@@ -800,7 +1040,7 @@ RegisterNetEvent('Chaos:Player:VR', function(duration)
         -- Fix an issue where the clone is placed above the player
         local _, groundZ = GetGroundZFor_3dCoord(playerCoords.x, playerCoords.y, playerCoords.z, false)
         playerCoords = vector3(playerCoords.x, playerCoords.y, groundZ)
-        
+
         SetEntityCoords(playerClone, playerCoords.x, playerCoords.y, playerCoords.z, false, false, false, true)
         SetEntityRotation(playerClone, playerRotation.x, playerRotation.y, playerRotation.z, 0, true)
         SetEntityInvincible(playerClone, true)
@@ -823,7 +1063,7 @@ RegisterNetEvent('Chaos:Player:VR', function(duration)
             while not HasModelLoaded(vehicleModel) do
                 Citizen.Wait(100)
             end
-            
+
             vehicleClone = CreateVehicle(
                 vehicleModel,
                 vehicleLocation.x, vehicleLocation.y, vehicleLocation.z,
@@ -834,7 +1074,7 @@ RegisterNetEvent('Chaos:Player:VR', function(duration)
             SetVehicleColourCombination(vehicleClone, vehicleColours)
             SetEntityInvincible(vehicleClone, true)
             SetEntityNoCollisionEntity(vehicleClone, playerVehicle, false)
-            
+
             -- Find seat player is in
             local maxSeats = GetVehicleModelNumberOfSeats(vehicleModel)
             local vehicleSeat = 0

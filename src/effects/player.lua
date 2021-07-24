@@ -556,7 +556,7 @@ RegisterNetEvent('Chaos:Player:KeepRunning', function(duration)
                 break
             end
 
-            SimulatePlayerInputGait(PlayerPedId(), 5., 100, 1., true, false)
+            SimulatePlayerInputGait(PlayerId(), 5., 100, 1., true, false)
 
             SetControlNormal(0, 32, 1.)
             SetControlNormal(0, 71, 1.)
@@ -710,19 +710,19 @@ end)
 
 RegisterNetEvent('Chaos:Player:RagdollOnShot', function(duration)
     local exitMethod = false
-    exports.helpers:DisplayMessage("Ragdoll when shooting")
+    exports.helpers:DisplayMessage("Ragdoll when hit")
 
     Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
     Citizen.CreateThread(function()
         local playerPed = PlayerPedId()
+        local startingHealth = GetEntityHealth(playerPed)
         while true do
             if exitMethod then
                 break
             end
 
-            local _, weaponHash = GetCurrentPedWeapon(playerPed, true)
-            local timeSinceDmg = GetTimeOfLastPedWeaponDamage(playerPed, weaponHash)
-            if timeSinceDmg and GetGameTimer() - timeSinceDmg < 200 then
+            local playerHealth = GetEntityHealth(playerPed)
+            if playerHealth < startingHealth then
                 if IsPedInAnyVehicle(playerPed, false) then
                     ClearPedTasksImmediately(playerPed)
                 end
@@ -732,6 +732,7 @@ RegisterNetEvent('Chaos:Player:RagdollOnShot', function(duration)
                 CreateNmMessage(true, 0)
                 GivePedNmMessage(playerPed)
             end
+            startingHealth = playerHealth
 
             Citizen.Wait(0)
         end
@@ -778,7 +779,9 @@ RegisterNetEvent('Chaos:Player:RandomVehSeat', function(duration)
         else
             local vehicleArray = {}
             for vehicle in exports.helpers:EnumerateVehicles() do
-                table.insert(vehicleArray, vehicle)
+                if HasCollisionLoadedAroundEntity(vehicle) then
+                    table.insert(vehicleArray, vehicle)
+                end
             end
 
             playerVehicle = vehicleArray[math.random(1, #vehicleArray)]
@@ -806,7 +809,7 @@ RegisterNetEvent('Chaos:Player:RandomVehSeat', function(duration)
 end)
 
 RegisterNetEvent('Chaos:Player:RocketMan', function(duration)
-    local LAUNCH_TIMER = 5000
+    local LAUNCH_TIMER = 6000
     exports.helpers:DisplayMessage("Elton John?")
 
     Citizen.CreateThread(function()
@@ -816,48 +819,46 @@ RegisterNetEvent('Chaos:Player:RocketMan', function(duration)
         SetPedToRagdoll(playerPed, 10000, 10000, 0, true, true, false)
         GiveWeaponToPed(playerPed, "GADGET_PARACHUTE", 1, true, false)
 
-        local lastTimestamp = GetGameTimer()
+        local exitMethod = false
         local launchTimer = LAUNCH_TIMER
-        local beepTimer = LAUNCH_TIMER
+        local beepTimer = 1000
 
-        while true do
-            Citizen.Wait(0)
+        Citizen.SetTimeout(launchTimer,function()
+            exitMethod = true
 
-            local currentTimestamp = GetGameTimer()
-            launchTimer = launchTimer - currentTimestamp
-            if launchTimer - lastTimestamp < beepTimer then
-                beepTimer = beepTimer * .8
-
-                UseParticleFxAsset("core")
-                PlaySoundFromEntity(-1, "Beep_Red", playerPed, "DLC_HEIST_HACKING_SNAKE_SOUNDS", true, false)
-                StartParticleFxLoopedOnEntity(
-                        "exp_air_molotov", playerPed,
-                        0., 0., 0.,
-                        0., 0., 0.,
-                        .7, false, false, false
-                )
-                SetEntityVelocity(playerPed, 0., 0., 5.)
-            end
-
-            if launchTimer <= 0 then
-                UseParticleFxAsset("core")
-                StartParticleFxLoopedOnEntity(
+            Citizen.Wait(1000)
+            UseParticleFxAsset("core")
+            StartParticleFxLoopedOnEntity(
                     "exp_air_rpg", playerPed,
                     0., 0., 0.,
                     0., 0., 0.,
                     .2, false, false, false
-                )
-                StartParticleFxLoopedOnEntity(
-                        "exp_air_molotov", playerPed,
-                        0., 0., 0.,
-                        0., 0., 0.,
-                        5., false, false, false
-                )
-                SetEntityVelocity(playerPed, 0., 0., 100.)
+            )
+            StartParticleFxLoopedOnEntity(
+                    "exp_air_molotov", playerPed,
+                    0., 0., 0.,
+                    0., 0., 0.,
+                    5., false, false, false
+            )
+            SetEntityVelocity(playerPed, 0., 0., 100.)
+        end)
+        while true do
+            if exitMethod then
                 break
             end
 
-            lastTimestamp = currentTimestamp
+            Citizen.Wait(beepTimer)
+            beepTimer = beepTimer * 0.8
+
+            UseParticleFxAsset("core")
+            PlaySoundFromEntity(-1, "Beep_Red", playerPed, "DLC_HEIST_HACKING_SNAKE_SOUNDS", true, false)
+            StartParticleFxLoopedOnEntity(
+                    "exp_air_molotov", playerPed,
+                    0., 0., 0.,
+                    0., 0., 0.,
+                    .7, false, false, false
+            )
+            SetEntityVelocity(playerPed, 0., 0., 8.)
         end
     end)
 end)
@@ -1171,19 +1172,22 @@ RegisterNetEvent('Chaos:Player:WalkOnWater', function(duration)
                         if IsPedInAnyVehicle(playerPed, false) then
                             local playerVehicle = GetVehiclePedIsIn(playerPed, false)
                             local vehicleCoords = GetEntityCoords(playerVehicle)
-                            SetEntityCoords(playerVehicle, vehicleCoords.x, vehicleCoords.y, vehicleCoords.z)
+                            SetEntityCoords(playerVehicle, vehicleCoords.x, vehicleCoords.y, waterZ + 1, false, false, false ,false)
+                        else
+                            SetEntityCoords(playerPed, playerCoords.x, playerCoords.y, waterZ + 1, false, false, false ,false)
                         end
                     end
+                else
+                    waterScreenObject = CreateObject(displayModel, playerCoords.x, playerCoords.y, playerCoords.z, true, true, true)
+                    SetEntityRotation(waterScreenObject, 90., 0., 0., 2, true)
+                    FreezeEntityPosition(waterScreenObject, true)
+                    SetEntityVisible(waterScreenObject, false, false)
                 end
-            else
-                waterScreenObject = CreateObject(displayModel, playerCoords.x, playerCoords.y, playerCoords.z, true, true, true)
-                SetEntityRotation(waterScreenObject, 90., 0., 0., 2, true)
-                FreezeEntityPosition(waterScreenObject, true)
-                SetEntityVisible(waterScreenObject, false, false)
             end
 
             Citizen.Wait(0)
             end
+
         SetModelAsNoLongerNeeded(displayModel)
         if DoesEntityExist(waterScreenObject) then
             DeleteObject(waterScreenObject)

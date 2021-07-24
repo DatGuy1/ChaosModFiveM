@@ -27,7 +27,7 @@ local EventNames = {
     {name = "Ignite", category = "Player", duration = 2},
     {name = "ImTired", category = "Player", duration = 1},
     {name = "InvertVelocity", category = "Misc", duration = 2},
-    {name = "KeepRunning", category = "Player", duration = 0},
+    {name = "KeepRunning", category = "Player", duration = 1},
     {name = "Kickflip", category = "Player", duration = 2},
     {name = "Lag", category = "Misc", duration = 0},
     {name = "LowPoly", category = "Misc", duration = 1},
@@ -54,7 +54,9 @@ local EventNames = {
     {name = "Spawn:OrangeBall", category = "Misc", duration = 2},
     {name = "Spawn:UFO", category = "Misc", duration = 2},
     {name = "VehicleRain", category = "Misc", duration = 1},
+    {name = "WalkOnWater", category = "Player", duration = 1},
     {name = "WhaleRain", category = "Misc", duration = 1},
+    {name = "ZoomZoomCam", category = "Player", duration = 0},
 }
 
 RegisterCommand("startchaos", function(_, _, _)

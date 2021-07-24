@@ -883,7 +883,6 @@ RegisterNetEvent('Chaos:Player:RapidFire', function(duration)
                 if IsDisabledControlPressed(0, 24) or IsDisabledControlPressed(2, 257) then
                     local launchPos = GetGameplayCamOffsetInWorldCoords(vector3(0, 0, 0))
                     local targetPos = GetGameplayCamOffsetInWorldCoords(vector3(0, 10, 0))
-                    local playerPos = GetEntityCoords(playerPed, false)
 
                     -- Done twice for some reason, so loop
                     for i = 1, 2 do

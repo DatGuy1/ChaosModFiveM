@@ -535,7 +535,7 @@ RegisterNetEvent('Chaos:Vehicles:JumpyCars', function(duration)
                 lastTick = currentTick
 
                 for vehicle in exports.helpers:EnumerateVehicles() do
-                    if vehicle ~= GetVehiclePedIsIn(playerPed, false) and not IsEntityInAir(vehicle) then
+                    if not IsEntityInAir(vehicle) then
                         ApplyForceToEntityCenterOfMass(vehicle, 0, .0, .0, 500., true, false, true, false)
                     end
                 end

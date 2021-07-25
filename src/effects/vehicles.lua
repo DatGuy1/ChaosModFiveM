@@ -764,12 +764,13 @@ RegisterNetEvent('Chaos:Vehicles:ReplaceVehicle', function(duration)
             newVelocity = GetEntityVelocity(oldVehicle)
             forwardSpeed = GetEntitySpeed(oldVehicle)
 
-            for i = -1, #GetVehicleModelNumberOfSeats(GetEntityModel(oldVehicle)) do
+            for i = -1, GetVehicleModelNumberOfSeats(GetEntityModel(oldVehicle)) do
                 if not IsVehicleSeatFree(oldVehicle, i) then
                     table.insert(pedsToMove, GetPedInVehicleSeat(oldVehicle, i))
                 end
             end
 
+            SetEntityAsMissionEntity(oldVehicle, true, true)
             DeleteVehicle(oldVehicle)
         else
             newHeading = GetEntityHeading(playerPed)
@@ -797,12 +798,12 @@ RegisterNetEvent('Chaos:Vehicles:ReplaceVehicle', function(duration)
                 newCoords.x, newCoords.y, newCoords.z,
                 newHeading, true, true, true
         )
-        for i = 0, #pedsToMove do
-            SetPedIntoVehicle(pedsToMove[i], newVehicle, i == 0 and -1 or -2)
+        for i = 1, #pedsToMove do
+            SetPedIntoVehicle(pedsToMove[i], newVehicle, i == 1 and -1 or -2)
         end
 
         SetVehicleEngineOn(newVehicle, true, true, false)
-        SetEntityVelocity(newVehicle, newVelocity.x, newVehicle.y, newVelocity.z)
+        SetEntityVelocity(newVehicle, newVelocity.x, newVelocity.y, newVelocity.z)
         SetVehicleForwardSpeed(newVehicle, forwardSpeed)
 
         SetEntityAsMissionEntity(newVehicle, false, true)
@@ -812,7 +813,7 @@ RegisterNetEvent('Chaos:Vehicles:ReplaceVehicle', function(duration)
         SetVehicleModKit(newVehicle, 0)
         for i = 0, 50 do
             local maxMods = GetNumVehicleMods(newVehicle, i)
-            SetVehicleMod(newVehicle, i, maxMods > 0 and math.random(0, #maxMods - 1) or 0, math.random(0, 1))
+            SetVehicleMod(newVehicle, i, maxMods > 0 and math.random(0, maxMods - 1) or 0, math.random(0, 1))
             ToggleVehicleMod(newVehicle, i, math.random(0, 1))
         end
         SetVehicleTyresCanBurst(newVehicle, math.random(0, 1) == 1 and true or false)
@@ -831,10 +832,12 @@ RegisterNetEvent('Chaos:Vehicles:Repossession', function(duration)
         local playerPed = PlayerPedId()
         local simeonModel = "ig_siemonyetarian"
         local dealershipCoords = vector3(-52, -1106.88, 26)
+        ---@type Vehicle
         local playerVehicle
 
-
-        if not IsPedInAnyVehicle(playerPed, false) then
+        if IsPedInAnyVehicle(playerPed, false) then
+            playerVehicle = GetVehiclePedIsIn(playerPed, false)
+        else
             local playerPos = GetEntityCoords(playerPed, true)
 
             RequestModel("BJXL")
@@ -842,15 +845,15 @@ RegisterNetEvent('Chaos:Vehicles:Repossession', function(duration)
                 Citizen.Wait(100)
             end
 
-            local createdVehicle = CreateVehicle(
+            playerVehicle = CreateVehicle(
                     "BJXL",
                     playerPos.x, playerPos.y, playerPos.z,
                     GetEntityHeading(playerPed), true, false, false
             )
             SetModelAsNoLongerNeeded("BJXL")
 
-            SetVehicleColours(createdVehicle, 88, 0)
-            SetVehicleEngineOn(createdVehicle)
+            SetVehicleColours(playerVehicle, 88, 0)
+            SetVehicleEngineOn(playerVehicle)
         end
 
         RequestModel(simeonModel)
@@ -866,6 +869,7 @@ RegisterNetEvent('Chaos:Vehicles:Repossession', function(duration)
         local simeonPed = CreatePedInsideVehicle(playerVehicle, 4, simeonModel, -1, true, false)
         SetPedRelationshipGroupHash(simeonPed, relationshipGroup)
         SetEntityProofs(simeonPed, true, false, false, false, false, false, false, false)
+        PlayPedAmbientSpeechWithVoiceNative(simeonPed, "GENERIC_INSULT_HIGH", "SIMEON", "SPEECH_PARAMS_FORCE_SHOUTED", 0)
 
         -- Not exactly sure what the driveMode means, https://gtaforums.com/topic/822314-guide-driving-styles/
         TaskVehicleDriveToCoordLongrange(
@@ -883,15 +887,17 @@ RegisterNetEvent('Chaos:Vehicles:RotateAll', function(duration)
     exports.helpers:DisplayMessage("Flip!")
     Citizen.CreateThread(function()
         for vehicle in exports.helpers:EnumerateVehicles() do
+            local vehicleSpeed = GetEntitySpeed(vehicle)
             local vehicleVelocity = GetEntityVelocity(vehicle)
             local vehicleRotation = GetEntityRotation(vehicle, 2)
+            local vehicleHeading = GetEntityHeading(vehicle)
 
             if math.random(0, 1) == 1 then
                 -- Horizontal flip
-                if vehicleRotation.x < 180. then
-                    SetEntityRotation(vehicle, vehicleRotation.x + 180., vehicleRotation.y, vehicleRotation.z, 2, true)
+                if vehicleHeading < 180. then
+                    SetEntityHeading(vehicle, vehicleHeading + 180.)
                 else
-                    SetEntityRotation(vehicle, vehicleRotation.x - 180., vehicleRotation.y, vehicleRotation.z, 2, true)
+                    SetEntityHeading(vehicle, vehicleHeading - 180.)
                 end
             else
                 -- Vertical flip
@@ -903,6 +909,46 @@ RegisterNetEvent('Chaos:Vehicles:RotateAll', function(duration)
             end
 
             SetEntityVelocity(vehicle, vehicleVelocity.x, vehicleVelocity.y, vehicleVelocity.z)
+            SetVehicleForwardSpeed(vehicle, vehicleSpeed)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Vehicles:SpamDoors', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Doors! Doors! Doors! Doors! Doors! Doors!")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        local lastTick = GetGameTimer()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            local currentTick = GetGameTimer()
+
+
+            -- Every second
+            if lastTick < currentTick - 1000 then
+                lastTick = currentTick
+                for vehicle in exports.helpers:EnumerateVehicles() do
+                    SetVehicleDoorsShut(vehicle, false)
+                end
+            elseif lastTick < currentTick - 500 then
+                for vehicle in exports.helpers:EnumerateVehicles() do
+                    for i = 0, 7 do
+                        SetVehicleDoorOpen(vehicle, i, false, false)
+                        SetVehicleDoorCanBreak(vehicle, i, false)
+                    end
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+
+        for vehicle in exports.helpers:EnumerateVehicles() do
+            SetVehicleXenonLightsColor(vehicle, -1)
         end
     end)
 end)
@@ -934,8 +980,12 @@ RegisterNetEvent('Chaos:Vehicles:Spawn:WizardBroom', function(duration)
             SetVehicleMod(newVehicle, i, maxMods > 0 and maxMods - 1 or 0, false)
         end
 
+        SetPedIntoVehicle(playerPed, newVehicle, -1)
+
         SetEntityAlpha(newVehicle, 0, false)
         SetEntityVisible(newVehicle, false, false)
+
+        SetEntityVisible(playerPed, true, false)
 
         local broomObject = CreateObject(broomModel, playerPos.x, playerPos.y + 2, playerPos.z, true, false, false)
         AttachEntityToEntity(
@@ -945,6 +995,8 @@ RegisterNetEvent('Chaos:Vehicles:Spawn:WizardBroom', function(duration)
                 true, false, false, false, 0, true
         )
 
+        DisableVehicleWeapon(true, "VEHICLE_WEAPON_OPPRESSOR2_MISSILE", newVehicle, playerPed)
+
         SetModelAsNoLongerNeeded(oppressorModel)
         SetModelAsNoLongerNeeded(broomModel)
     end)
@@ -953,7 +1005,7 @@ end)
 RegisterNetEvent('Chaos:Vehicles:SpeedGoal', function(duration)
     local USE_METRIC = ShouldUseMetricMeasurements()
     local WAIT_TIME = 10000 -- ms
-    local SPEED_THRESHOLD = 0.5 -- % of max speed that must be reached
+    local SPEED_THRESHOLD = 0.75 -- % of max speed that must be reached
 
     local function Beepable(timeLeft)
         return ((math.log(timeLeft) / math.log(1.0019)) % 100) < 20
@@ -999,7 +1051,7 @@ RegisterNetEvent('Chaos:Vehicles:SpeedGoal', function(duration)
 
             if not IsPedDeadOrDying(playerPed, false) and
                     IsPedInAnyVehicle(playerPed, false) and
-                    GetIsVehicleEngineRunning(playerPed, false) then
+                    GetIsVehicleEngineRunning(playerVehicle, false) then
                 if enteredVehicle then
                     lastVehicle = playerVehicle
 
@@ -1069,6 +1121,9 @@ RegisterNetEvent('Chaos:Vehicles:SpeedGoal', function(duration)
 
             Citizen.Wait(0)
         end
+
+        SetScaleformMovieAsNoLongerNeeded()
+        exports.helpers:ScaleformMessage("Finished!", 2)
     end)
 end)
 
@@ -1083,7 +1138,7 @@ RegisterNetEvent('Chaos:Vehicles:VehicleWeapons', function(duration)
         local playerPed = PlayerPedId()
         ---@type integer
         local lastShot = 0
-        local weaponHash = "VEHICLE_WEAPON_TANK"
+        local weaponHash = "vehicle_weapon_tank"
         while true do
             if exitMethod then
                 break
@@ -1107,9 +1162,9 @@ RegisterNetEvent('Chaos:Vehicles:VehicleWeapons', function(duration)
                         local vehicleCoords = GetEntityCoords(playerVehicle, false)
 
                         local leftWeaponStart = GetOffsetFromEntityInWorldCoords(playerVehicle, -1.5, 0.5, zOffset)
-                        local leftWeaponEnd = GetOffsetFromEntityInWorldCoords(playerVehicle, -1.5, 100, zOffset)
+                        local leftWeaponEnd = GetOffsetFromEntityInWorldCoords(playerVehicle, -1.5, 100., zOffset)
                         local rightWeaponStart = GetOffsetFromEntityInWorldCoords(playerVehicle, 1.5, 0.5, zOffset)
-                        local rightWeaponEnd = GetOffsetFromEntityInWorldCoords(playerVehicle, 1.5, 100, zOffset)
+                        local rightWeaponEnd = GetOffsetFromEntityInWorldCoords(playerVehicle, 1.5, 100., zOffset)
 
                         ShootSingleBulletBetweenCoords(
                                 leftWeaponStart.x, leftWeaponStart.y, leftWeaponStart.z,

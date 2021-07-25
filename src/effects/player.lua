@@ -889,7 +889,7 @@ RegisterNetEvent('Chaos:Player:RapidFire', function(duration)
                         ShootSingleBulletBetweenCoords(
                                 launchPos.x, launchPos.y, launchPos.z,
                                 targetPos.x, targetPos.y, targetPos.z,
-                                5, 1, weaponHash, playerPed
+                                5, true, weaponHash, playerPed
                         )
                     end
                 end

@@ -1036,7 +1036,7 @@ RegisterNetEvent('Chaos:Vehicles:SpeedGoal', function(duration)
         ---@type Vehicle
         local lastVehicle
         local timeReserve = WAIT_TIME
-        -- Making up for no 'continue' statement
+        -- Making up for no 'continue' statement. Maybe switch to goto?
         local skipNext = false
         while true do
             if exitMethod then

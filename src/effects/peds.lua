@@ -562,7 +562,7 @@ end)
 
 RegisterNetEvent('Chaos:Peds:FlipAll', function(duration)
     local exitMethod = false
-    exports.helpers:DisplayMessage("Spinning players")
+    exports.helpers:DisplayMessage("The AI joined a ballerina troupe")
 
     Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
     Citizen.CreateThread(function()
@@ -609,7 +609,7 @@ RegisterNetEvent('Chaos:Peds:GunSmoke', function(duration)
                     StartParticleFxNonLoopedAtCoord(
                             "scr_sr_tr_car_change",
                             pedPos.x, pedPos.y, pedPos.z,
-                            0, 0, 0, 1,
+                            0., 0., 0., 1.,
                             false, true, false
                     )
                 end
@@ -639,7 +639,7 @@ end)
 
 RegisterNetEvent('Chaos:Peds:InTheHood', function(duration)
     local exitMethod = false
-    exports.helpers:DisplayMessage("Just dance")
+    exports.helpers:DisplayMessage("Just Dance!")
 
     Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
     Citizen.CreateThread(function()
@@ -651,8 +651,10 @@ RegisterNetEvent('Chaos:Peds:InTheHood', function(duration)
             end
 
             for ped in exports.helpers:EnumeratePeds() do
-                if not IsEntityPlayingAnim(ped, animationDict, "dance_m_default", 3)
-                    and not IsPedAPlayer(ped) and not IsEntityAMissionEntity(ped) then
+                if not IsEntityPlayingAnim(ped, animationDict, "dance_m_default", 3) then
+                    if IsPedAPlayer(ped) then
+                        Citizen.SetTimeout(duration * 1000, function() ClearPedTasksImmediately(ped) end)
+                    end
                     TaskPlayAnim(ped, animationDict, "dance_m_default", 4., -4., -1, 1, 0., false, false, false)
                 end
             end
@@ -679,8 +681,8 @@ RegisterNetEvent('Chaos:Peds:JamesBond', function(duration)
         local playerPos = GetEntityCoords(playerPed, false)
         local playerHeading = GetEntityHeading(IsPedInAnyVehicle(playerPed, false) and GetVehiclePedIsIn(playerPed, false) or playerPed)
 
-        local xPos = math.sin((360 - playerHeading) * math.pi / 180) * 10
-        local yPos = math.cos((360 - playerHeading) * math.pi / 180) * 10
+        local xPos = math.sin((360 - playerHeading) * math.pi / 180) * 100
+        local yPos = math.cos((360 - playerHeading) * math.pi / 180) * 100
 
         RequestModel(carModel)
         while not HasModelLoaded(carModel) do
@@ -702,6 +704,7 @@ RegisterNetEvent('Chaos:Peds:JamesBond', function(duration)
 
         SetPedHearingRange(bondPed, 9999.)
         SetPedConfigFlag(bondPed, 281, true)
+        SetPedCombatAbility(bondPed, 2)
         -- BF_CanFightArmedPedsWhenNotArmed
         SetPedCombatAttributes(bondPed, 5, true)
         -- BF_AlwaysFight
@@ -715,5 +718,7 @@ RegisterNetEvent('Chaos:Peds:JamesBond', function(duration)
         -- Make 100% accurate and set to combat player
         SetPedAccuracy(bondPed, 100)
         TaskCombatPed(bondPed, playerPed, 0, 16)
+
+        GivePedEnemyBlip(bondPed)
     end)
 end)

@@ -16,6 +16,24 @@ local function CreatePoolPed(pedType, modelName, spawnPos, spawnHeading)
     return createdPed
 end
 
+---Handles creation and disposal of ped inside vehicle
+---@param targetVehicle Vehicle
+---@param pedType integer
+---@param modelName string
+---@param seatIndex integer
+---@return Ped Created ped
+local function CreatePoolPedInsideVehicle(targetVehicle, pedType, modelName, seatIndex)
+    RequestModel(modelName)
+    while not HasModelLoaded(modelName) do
+        Citizen.Wait(100)
+    end
+
+    local createdPed = CreatePedInsideVehicle(targetVehicle, pedType, modelName, seatIndex, true, false)
+
+    SetModelAsNoLongerNeeded(modelName)
+    return createdPed
+end
+
 ---Creates ped 'modelName' hostile to player, immune to fire and explosions, with optional weapon 'weaponHash', in player's vehicle (if exists), and can't ragdoll from player
 ---@param modelName string
 ---@param weaponHash string
@@ -407,5 +425,295 @@ RegisterNetEvent('Chaos:Peds:DriveByPlayer', function(duration)
 
             Citizen.Wait(0)
         end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:EternalScreams', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("AAAAAAAAAAAAAAAAAAAAAAAAAAAAAHHHHHHHHHHHHHHHHHH")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            for ped in exports.helpers:EnumeratePeds() do
+                PlayPain(ped, 8, 0, 0)
+            end
+
+            Citizen.Wait(0)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:ExplosivePeds', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Explosive People")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            for ped in exports.helpers:EnumeratePeds() do
+                if not IsPedAPlayer(ped) then
+                    local maxHealth = GetEntityMaxHealth(ped)
+
+                    if maxHealth > 0 and (IsPedInjured(ped) or IsPedRagdoll(ped)) then
+                        local pedPos = GetEntityCoords(ped, false)
+
+                        AddExplosion(pedPos.x, pedPos.y, pedPos.z, 4, 9999., true, false, 1.)
+                        SetEntityHealth(ped, 0)
+                        SetEntityMaxHealth(ped, 0)
+                    end
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:ExplosiveCombat', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Explosive Combat")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        local playerId = PlayerId()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            SetExplosiveAmmoThisFrame(playerId)
+            SetExplosiveMeleeThisFrame(playerId)
+            for ped in exports.helpers:EnumeratePeds() do
+                local coordFound, impactCoords = GetPedLastWeaponImpactCoord(ped)
+                if coordFound then
+                    AddExplosion(impactCoords.x, impactCoords.y, impactCoords.z, 4, 9999., true, false, 1.)
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:Famous', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("I'm a Celebrity... Get Me Out of Here!")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        local playerPed = PlayerPedId()
+        ---@type Vehicle
+        local savedPlayerVehicle
+        local lastTick = GetGameTimer()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            local playerInVehicle = IsPedInAnyVehicle(playerPed, false)
+            if playerInVehicle then
+                savedPlayerVehicle = GetVehiclePedIsIn(playerPed, false)
+            end
+
+            local currentTick = GetGameTimer()
+            if lastTick < currentTick - 2000 then
+                local count = 3
+                for ped in exports.helpers:EnumeratePeds() do
+                    if not IsPedAPlayer(ped) then
+                        local pedInVehicle = IsPedInAnyVehicle(ped, true)
+                        local pedGettingIntoVehicle = IsPedGettingIntoAVehicle(ped)
+                        local pedVehicle = GetVehiclePedIsIn(ped, false)
+                        local pedTargetVehicle = GetVehiclePedIsEntering(ped)
+
+                        if playerInVehicle and (not pedInVehicle or pedVehicle ~= savedPlayerVehicle) and (not pedGettingIntoVehicle or pedTargetVehicle ~= savedPlayerVehicle) then
+                            TaskEnterVehicle(ped, savedPlayerVehicle, -1, -2, 2., 1, 0)
+                        elseif (pedInVehicle and pedVehicle == savedPlayerVehicle) or (pedGettingIntoVehicle and pedTargetVehicle == savedPlayerVehicle) then
+                            if GetPedInVehicleSeat(savedPlayerVehicle, -1, 0) == ped then
+                                TaskVehicleDriveWander(ped, savedPlayerVehicle, 9999., 10)
+                            end
+                        else
+                            TaskFollowToOffsetOfEntity(ped, playerPed, .0, .0, .0, 9999., -1, .0, true)
+                        end
+
+                        SetBlockingOfNonTemporaryEvents(ped, true)
+
+                        count = count - 1
+                        if count == 0 then
+                            count = 3
+                            Citizen.Wait(0)
+                        end
+                    end
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:FlipAll', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Spinning players")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        local playerPed = PlayerPedId()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            for ped in exports.helpers:EnumeratePeds() do
+                if not IsPedInAnyVehicle(ped, false) and not IsPedAPlayer(ped) then
+                    local playerRotation = GetEntityRotation(ped, 2)
+                    SetEntityRotation(ped, playerRotation.x + 40., playerRotation.y + 40., playerRotation.z, 2, true)
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:GunSmoke', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Gun smoke!")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        local playerPed = PlayerPedId()
+        local particleAsset = "scr_sr_tr"
+
+        RequestNamedPtfxAsset(particleAsset)
+        while not HasNamedPtfxAssetLoaded(particleAsset) do
+            Citizen.Wait(100)
+        end
+        while true do
+            if exitMethod then
+                break
+            end
+
+            for ped in exports.helpers:EnumeratePeds() do
+                if IsPedShooting(ped) then
+                    local pedPos = GetEntityCoords(ped, false)
+                    UseParticleFxAsset(particleAsset)
+                    StartParticleFxNonLoopedAtCoord(
+                            "scr_sr_tr_car_change",
+                            pedPos.x, pedPos.y, pedPos.z,
+                            0, 0, 0, 1,
+                            false, true, false
+                    )
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+
+        RemoveNamedPtfxAsset(particleAsset)
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:HandsUp', function(duration)
+    exports.helpers:DisplayMessage("Hands up!")
+
+    Citizen.CreateThread(function()
+        for ped in exports.helpers:EnumeratePeds() do
+            local pedType = GetPedType()
+            -- 6 = cop, 27 = NOOSE
+            if pedType ~= 6 and pedType ~= 27 and not IsPedDeadOrDying(ped, true) then
+                TaskHandsUp(ped, 5000, 0, -1, true)
+                SetPedDropsWeapon(ped)
+            end
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:InTheHood', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Just dance")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        local animationDict = "missfbi3_sniping"
+        RequestAnimDict(animationDict)
+        while true do
+            if exitMethod then
+                break
+            end
+
+            for ped in exports.helpers:EnumeratePeds() do
+                if not IsEntityPlayingAnim(ped, animationDict, "dance_m_default", 3)
+                    and not IsPedAPlayer(ped) and not IsEntityAMissionEntity(ped) then
+                    TaskPlayAnim(ped, animationDict, "dance_m_default", 4., -4., -1, 1, 0., false, false, false)
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+
+        RemoveAnimDict(animationDict)
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:JamesBond', function(duration)
+    exports.helpers:DisplayMessage("The name's...")
+
+    Citizen.CreateThread(function()
+        local playerPed = PlayerPedId()
+        local bondModel = "cs_milton"
+        local carModel = "JB700"
+
+        local playerGroup = "PLAYAER"
+        local _, relationshipGroup = AddRelationshipGroup("_HOSTILE_BOND")
+        SetRelationshipBetweenGroups(5, relationshipGroup, playerGroup)
+
+        local playerPos = GetEntityCoords(playerPed, false)
+        local playerHeading = GetEntityHeading(IsPedInAnyVehicle(playerPed, false) and GetVehiclePedIsIn(playerPed, false) or playerPed)
+
+        local xPos = math.sin((360 - playerHeading) * math.pi / 180) * 10
+        local yPos = math.cos((360 - playerHeading) * math.pi / 180) * 10
+
+        RequestModel(carModel)
+        while not HasModelLoaded(carModel) do
+            Citizen.Wait(50)
+        end
+
+        local createdVehicle = CreateVehicle(carModel, playerPos.x - xPos, playerPos.y - yPos, playerPos.z, playerHeading)
+        SetModelAsNoLongerNeeded(carModel)
+
+        SetVehicleEngineOn(createdVehicle, true, true, false)
+        local playerVelocity = GetEntityVelocity(playerPed)
+        SetEntityVelocity(createdVehicle, playerVelocity.x, playerVelocity.y, playerVelocity.z)
+
+        local bondPed = CreatePoolPedInsideVehicle(createdVehicle, 4, bondModel, -1)
+
+        SetPedRelationshipGroupHash(bondPed, relationshipGroup)
+
+        TaskSetBlockingOfNonTemporaryEvents(bondPed, true)
+
+        SetPedHearingRange(bondPed, 9999.)
+        SetPedConfigFlag(bondPed, 281, true)
+        -- BF_CanFightArmedPedsWhenNotArmed
+        SetPedCombatAttributes(bondPed, 5, true)
+        -- BF_AlwaysFight
+        SetPedCombatAttributes(bondPed, 46, true)
+        SetPedSuffersCriticalHits(bondPed, false)
+
+        -- Give switchblade and suppressed vintage pistol
+        GiveWeaponToPed(bondPed, "WEAPON_SWITCHBLADE", 9999, true, true)
+        GiveWeaponToPed(bondPed, "WEAPON_VINTAGEPISTOL", 9999, true, true)
+        GiveWeaponComponentToPed(bondPed, "WEAPON_VINTAGEPISTOL", "COMPONENT_AT_PI_SUPP")
+        -- Make 100% accurate and set to combat player
+        SetPedAccuracy(bondPed, 100)
+        TaskCombatPed(bondPed, playerPed, 0, 16)
     end)
 end)

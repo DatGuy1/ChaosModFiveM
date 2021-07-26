@@ -722,3 +722,180 @@ RegisterNetEvent('Chaos:Peds:JamesBond', function(duration)
         GivePedEnemyBlip(bondPed)
     end)
 end)
+
+RegisterNetEvent('Chaos:Peds:JumpyPeds', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Everybody Jump!")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            for ped in exports.helpers:EnumeratePeds() do
+                if not IsPedInAnyVehicle(ped, false) then
+                    TaskJump(ped, false, false, false)
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:KillerClowns', function(duration)
+    local MaxClowns = 3
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Killer Clowns")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        local clownEnemies = {}
+        local particleAsset = "scr_rcbarry2"
+        local playerPed = PlayerPedId()
+        local playerGroup = "PLAYER"
+        ---@type integer
+        local spawnTimer = -1
+        local _, relationshipGroup = AddRelationshipGroup("_HOSTILE_KILLER_CLOWNS")
+        SetRelationshipBetweenGroups(5, relationshipGroup, playerGroup)
+        SetRelationshipBetweenGroups(5, playerGroup, relationshipGroup)
+        SetRelationshipBetweenGroups(0, relationshipGroup, relationshipGroup)
+
+        RequestNamedPtfxAsset(particleAsset)
+        while not HasNamedPtfxAssetLoaded(particleAsset) do
+            Citizen.Wait(100)
+        end
+        while true do
+            if exitMethod then
+                break
+            end
+
+            local playerPos = GetEntityCoords(playerPed, false)
+            local currentTime = GetGameTimer()
+
+            for i = 1, #clownEnemies do
+                local currentClown = clownEnemies[i]
+                local clownPos = GetEntityCoords(currentClown, false)
+                if IsPedDeadOrDying(currentClown, false) or IsPedInjured(currentClown)
+                        or GetDistanceBetweenCoords(playerPos.x, playerPos.y, playerPos.z, clownPos.x, clownPos.y, clownPos.z, false) > 100. then
+                    SetEntityHealth(currentClown, 0)
+                    UseParticleFxAsset(particleAsset)
+                    StartParticleFxNonLoopedAtCoord(
+                            "scr_clown_death",
+                            clownPos.x, clownPos.y, clownPos.z,
+                            0., 0., 0.,
+                            3., false, false, false
+                    )
+                    Citizen.Wait(300)
+                    SetEntityAlpha(currentClown, 0, true)
+                    SetPedAsNoLongerNeeded(currentClown)
+                    DeletePed(currentClown)
+                    table.remove(clownEnemies, i)
+                    Citizen.Wait(0)
+                end
+            end
+
+            if #clownEnemies < MaxClowns and currentTime > spawnTimer + 2000 then
+                spawnTimer = currentTime
+                local spawnPos = playerPos
+                for i = 0, 10 do
+                    if math.random(0, 1) == 1 then
+                        spawnPos = vector3(
+                                spawnPos.x + math.random(10, 25),
+                                spawnPos.y, spawnPos.z
+                        )
+                    else
+                        spawnPos = vector3(
+                                spawnPos.x - math.random(10, 25),
+                                spawnPos.y, spawnPos.z
+                        )
+                    end
+                    if math.random(0, 1) == 1 then
+                        spawnPos = vector3(
+                                spawnPos.x,
+                                spawnPos.y + math.random(10, 25),
+                                spawnPos.z
+                        )
+                    else
+                        spawnPos = vector3(
+                                spawnPos.x,
+                                spawnPos.y - math.random(10, 25),
+                                spawnPos.z
+                        )
+                    end
+                    local groundExists, groundZ = GetGroundZFor_3dCoord(spawnPos.x, spawnPos.y, spawnPos.z, false)
+                    if groundExists then
+                        spawnPos = vector3(spawnPos.x, spawnPos.y, groundZ)
+                    end
+                end
+
+                UseParticleFxAsset(particleAsset)
+                StartParticleFxNonLoopedAtCoord(
+                        "scr_clown_appears",
+                        spawnPos.x, spawnPos.y, spawnPos.z,
+                        0., 0., 0.,
+                        2., true, true, true
+                )
+                Citizen.Wait(300)
+
+                local createdClown = CreatePoolPed(-1, "s_m_y_clown_01", spawnPos, 0.)
+                SetBlockingOfNonTemporaryEvents(createdClown, true)
+                SetPedRelationshipGroupHash(createdClown, relationshipGroup)
+                SetPedHearingRange(createdClown, 9999.)
+
+                GiveWeaponToPed(createdClown, "WEAPON_MICROSMG", 9999, true, true)
+                SetPedAccuracy(createdClown, 20)
+                TaskCombatPed(createdClown, playerPed, 0, 16)
+                GivePedEnemyBlip(createdClown)
+            end
+
+            Citizen.Wait(0)
+        end
+
+        RemoveNamedPtfxAsset(particleAsset)
+        for i = 1, #clownEnemies do
+            SetPedAsNoLongerNeeded(clownEnemies[i])
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:LooseTrigger', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Loose trigger finger")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        local playerPed = PlayerPedId()
+        local count = 3
+        while true do
+            if exitMethod then
+                break
+            end
+
+            for ped in exports.helpers:EnumeratePeds() do
+                SetPedInfiniteAmmoClip(ped, true)
+                local weaponHash = GetSelectedPedWeapon(ped)
+                if GetWeaponDamageType(weaponHash) ~= 2 and IsPedWeaponReadyToShoot(ped) then
+                    local pedWeapon = GetCurrentPedWeaponEntityIndex(ped)
+                    local targetOffset = GetOffsetFromEntityInWorldCoords(pedWeapon, 0., 1., 0.)
+
+                    SetPedShootsAtCoord(ped, targetOffset.x, targetOffset.y, targetOffset.z, true)
+
+                    count = count - 1
+                    if count == 0 then
+                        count = 3
+                        Citizen.Wait(0)
+                    end
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+
+        for ped in exports.helpers:EnumeratePeds() do
+            SetPedInfiniteAmmoClip(ped, false)
+        end
+    end)
+end)

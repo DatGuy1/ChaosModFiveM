@@ -75,9 +75,17 @@ local function DegToRadian(angles)
     )
 end
 
+---Gives ped a red (enemy) blip on the map, automatically handled by the game
+---@param ped Ped
+---@return void
+local function GivePedEnemyBlip(ped)
+    SetPedHasAiBlip(ped, true)
+    SetBlipAsFriendly(GetAiBlip(ped), false)
+end
+
 RegisterNetEvent('Chaos:Peds:Aimbot', function(duration)
     local exitMethod = false
-    exports.helpers:DisplayMessage("Don't aggro the AI")
+    exports.helpers:DisplayMessage("Enemies have aimbot")
 
     Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
     Citizen.CreateThread(function()
@@ -203,7 +211,7 @@ RegisterNetEvent('Chaos:Peds:BusBoys', function(duration)
         local playerPos = GetEntityCoords(playerPed, true)
 
         for ped in exports.helpers:EnumeratePeds() do
-            if not IsPedAPlayer(ped) and not IsPedDeadOrDying(ped, false) then
+            if not IsPedAPlayer(ped) and not IsPedDeadOrDying(ped, true) then
                 local pedPos = GetEntityCoords(ped, true)
                 if GetDistanceBetweenCoords(
                         pedPos.x, pedPos.y, pedPos.z,
@@ -325,7 +333,7 @@ end)
 
 RegisterNetEvent('Chaos:Peds:Cops', function(duration)
     local exitMethod = false
-    exports.helpers:DisplayMessage("Police here, police there, police everywhere!")
+    exports.helpers:DisplayMessage("Police here, police there, police everywhere! Just don't commit a crime!")
 
     Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
     Citizen.CreateThread(function()
@@ -336,12 +344,14 @@ RegisterNetEvent('Chaos:Peds:Cops', function(duration)
 
             for ped in exports.helpers:EnumeratePeds() do
                 local pedType = GetPedType(ped)
-                if not IsPedAPlayer(ped) and pedType > 2 then
+                if not IsPedAPlayer(ped) and pedType > 2 and pedType ~= 6 then
                     SetPedAsCop(ped, true)
+                    GiveWeaponToPed(ped, "weapon_pistol", 9999, true, false)
+                    SetPedCombatAttributes(ped, 46, true)
                 end
             end
 
-            Citizen.Wait(0)
+            Citizen.Wait(300)
         end
     end)
 end)
@@ -371,8 +381,6 @@ RegisterNetEvent('Chaos:Peds:DriveBackwards', function(duration)
 end)
 
 RegisterNetEvent('Chaos:Peds:DriveByPlayer', function(duration)
-    local DRIVING_STYLE = 1024; -- "Drive in reverse gear" bit
-
     local exitMethod = false
     exports.helpers:DisplayMessage("POV: You're John Wick during the third movie")
 
@@ -380,6 +388,7 @@ RegisterNetEvent('Chaos:Peds:DriveByPlayer', function(duration)
     Citizen.CreateThread(function()
         local playerPed = PlayerPedId()
         local weaponHash = "WEAPON_MACHINEPISTOL"
+
         while true do
             if exitMethod then
                 break
@@ -387,6 +396,8 @@ RegisterNetEvent('Chaos:Peds:DriveByPlayer', function(duration)
 
             for ped in exports.helpers:EnumeratePeds() do
                 if not IsPedAPlayer(ped) and IsPedInAnyVehicle(ped, false) then
+                    GivePedEnemyBlip(ped)
+
                     SetBlockingOfNonTemporaryEvents(ped, true)
 
                     GiveWeaponToPed(ped, weaponHash, 9999, true, true)

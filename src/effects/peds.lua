@@ -51,7 +51,7 @@ local function CreateHostilePed(modelName, weaponHash)
     SetRelationshipBetweenGroups(5, relationshipGroup, civGroup)
     SetRelationshipBetweenGroups(5, relationshipGroup, femCivGroup)
 
-    local createdPed = CreatePoolPed(4, modelName, playerPos.x, playerPos.y, playerPos.z, 0.)
+    local createdPed = CreatePoolPed(4, modelName, playerPos, 0.)
     if IsPedInAnyVehicle(playerPed, false) then
         SetPedIntoVehicle(createdPed, GetVehiclePedIsIn(playerPed, false), -2)
     end
@@ -915,6 +915,34 @@ RegisterNetEvent('Chaos:Peds:LooseTrigger', function(duration)
     end)
 end)
 
+RegisterNetEvent('Chaos:Peds:Minions', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("I can't think of anything funny for this one")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            for ped in exports.helpers:EnumeratePeds() do
+                if not GetPedConfigFlag(ped, 223, true) then
+                    SetPedConfigFlag(ped, 223, true)
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+
+        for ped in exports.helpers:EnumeratePeds() do
+            if GetPedConfigFlag(ped, 223, true) then
+                SetPedConfigFlag(ped, 223, false)
+            end
+        end
+    end)
+end)
+
 RegisterNetEvent('Chaos:Peds:NoRagdoll', function(duration)
     local exitMethod = false
     exports.helpers:DisplayMessage("No Ragdolling")
@@ -1060,7 +1088,7 @@ RegisterNetEvent('Chaos:Peds:Spawn:CompanionCats', function(duration)
         local playerPos = GetEntityCoords(playerPed, false)
 
         for i = 1, CATS_AMOUNT do
-            local companionPed = CreatePoolPed(28, companionModel, playerPos.x, playerPos.y, playerPos.z, GetEntityHeading(playerPed))
+            local companionPed = CreatePoolPed(28, companionModel, playerPos, GetEntityHeading(playerPed))
 
             SetPedRelationshipGroupHash(companionPed, relationshipGroup)
             SetPedAsGroupMember(companionPed, GetPlayerGroup(PlayerId()))
@@ -1081,7 +1109,7 @@ RegisterNetEvent('Chaos:Peds:Spawn:CompanionChimp', function(duration)
 
         local playerPos = GetEntityCoords(playerPed, false)
 
-        local companionPed = CreatePoolPed(28, companionModel, playerPos.x, playerPos.y, playerPos.z, GetEntityHeading(playerPed))
+        local companionPed = CreatePoolPed(28, companionModel, playerPos, GetEntityHeading(playerPed))
 
         if IsPedInAnyVehicle(playerPed, false) then
             SetPedIntoVehicle(companionPed, GetVehiclePedIsIn(playerPed, false), -2)
@@ -1117,7 +1145,7 @@ RegisterNetEvent('Chaos:Peds:Spawn:CompanionChop', function(duration)
 
         local playerPos = GetEntityCoords(playerPed, false)
 
-        local companionPed = CreatePoolPed(28, companionModel, playerPos.x, playerPos.y, playerPos.z, GetEntityHeading(playerPed))
+        local companionPed = CreatePoolPed(28, companionModel, playerPos, GetEntityHeading(playerPed))
 
 
         SetPedRelationshipGroupHash(companionPed, relationshipGroup)
@@ -1130,7 +1158,7 @@ end)
 
 RegisterNetEvent('Chaos:Peds:Spawn:DancingApes', function(duration)
     local APE_AMOUNT = 3
-    exports.helpers:DisplayMessage("Dancing Apes")
+    exports.helpers:DisplayMessage("The Dancing Apes Trio")
 
     Citizen.CreateThread(function()
         local animationDict = "missfbi3_sniping"
@@ -1148,7 +1176,7 @@ RegisterNetEvent('Chaos:Peds:Spawn:DancingApes', function(duration)
             local apePed = CreatePoolPed(
                     28,
                     math.random(0, 1) == 1 and "a_c_chimp" or "a_c_rhesus",
-                    playerPos.x, playerPos.y, playerPos.z,
+                    playerPos,
                     GetEntityHeading(playerPed)
             )
             SetPedRelationshipGroupHash(apePed, relationshipGroup)
@@ -1250,8 +1278,23 @@ RegisterNetEvent('Chaos:Peds:Spawn:RoastingLamar', function(duration)
                 end
             end
 
+            local lamarPos = GetEntityCoords(lamarPed)
+            local particleAsset = "scr_rcbarry2"
+            RequestNamedPtfxAsset(particleAsset)
+            while not HasNamedPtfxAssetLoaded(particleAsset) do
+                Citizen.Wait(50)
+            end
+            UseParticleFxAsset(particleAsset)
+            StartParticleFxNonLoopedAtCoord(
+                    "scr_clown_death",
+                    lamarPos.x, lamarPos.y, lamarPos.z,
+                    0., 0., 0.,
+                    3., false, false, false
+            )
+            Citizen.Wait(300)
+            SetEntityAlpha(lamarPed, 0, true)
             SetPedAsNoLongerNeeded(lamarPed)
-            SetEntityInvincible(lamarPed, false)
+            DeletePed(lamarPed)
         end
     end)
 end)

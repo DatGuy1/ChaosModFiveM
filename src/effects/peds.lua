@@ -725,7 +725,7 @@ end)
 
 RegisterNetEvent('Chaos:Peds:JumpyPeds', function(duration)
     local exitMethod = false
-    exports.helpers:DisplayMessage("Everybody Jump!")
+    exports.helpers:DisplayMessage("Do the Cha-Cha slide")
 
     Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
     Citizen.CreateThread(function()
@@ -746,7 +746,7 @@ RegisterNetEvent('Chaos:Peds:JumpyPeds', function(duration)
 end)
 
 RegisterNetEvent('Chaos:Peds:KillerClowns', function(duration)
-    local MaxClowns = 3
+    local MaxClowns = 10
     local exitMethod = false
     exports.helpers:DisplayMessage("Killer Clowns")
 
@@ -778,7 +778,7 @@ RegisterNetEvent('Chaos:Peds:KillerClowns', function(duration)
             for i = 1, #clownEnemies do
                 local currentClown = clownEnemies[i]
                 local clownPos = GetEntityCoords(currentClown, false)
-                if IsPedDeadOrDying(currentClown, false) or IsPedInjured(currentClown)
+                if IsPedDeadOrDying(currentClown, true) or IsPedInjured(currentClown)
                         or GetDistanceBetweenCoords(playerPos.x, playerPos.y, playerPos.z, clownPos.x, clownPos.y, clownPos.z, false) > 100. then
                     SetEntityHealth(currentClown, 0)
                     UseParticleFxAsset(particleAsset)
@@ -841,6 +841,7 @@ RegisterNetEvent('Chaos:Peds:KillerClowns', function(duration)
                 Citizen.Wait(300)
 
                 local createdClown = CreatePoolPed(-1, "s_m_y_clown_01", spawnPos, 0.)
+                SetEntityAsMissionEntity(createdClown, true, true)
                 SetBlockingOfNonTemporaryEvents(createdClown, true)
                 SetPedRelationshipGroupHash(createdClown, relationshipGroup)
                 SetPedHearingRange(createdClown, 9999.)
@@ -849,15 +850,29 @@ RegisterNetEvent('Chaos:Peds:KillerClowns', function(duration)
                 SetPedAccuracy(createdClown, 20)
                 TaskCombatPed(createdClown, playerPed, 0, 16)
                 GivePedEnemyBlip(createdClown)
+                table.insert(clownEnemies, createdClown)
             end
 
             Citizen.Wait(0)
         end
 
-        RemoveNamedPtfxAsset(particleAsset)
         for i = 1, #clownEnemies do
-            SetPedAsNoLongerNeeded(clownEnemies[i])
+            local currentClown = clownEnemies[i]
+            local clownPos = GetEntityCoords(currentClown, false)
+            SetEntityHealth(currentClown, 0)
+            UseParticleFxAsset(particleAsset)
+            StartParticleFxNonLoopedAtCoord(
+                    "scr_clown_death",
+                    clownPos.x, clownPos.y, clownPos.z,
+                    0., 0., 0.,
+                    3., false, false, false
+            )
+            Citizen.Wait(300)
+            SetEntityAlpha(currentClown, 0, true)
+            SetPedAsNoLongerNeeded(currentClown)
+            DeletePed(currentClown)
         end
+        RemoveNamedPtfxAsset(particleAsset)
     end)
 end)
 
@@ -896,6 +911,470 @@ RegisterNetEvent('Chaos:Peds:LooseTrigger', function(duration)
 
         for ped in exports.helpers:EnumeratePeds() do
             SetPedInfiniteAmmoClip(ped, false)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:NoRagdoll', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("No Ragdolling")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            for ped in exports.helpers:EnumeratePeds() do
+                SetPedCanRagdoll(ped, false)
+            end
+
+            Citizen.Wait(0)
+        end
+
+        for ped in exports.helpers:EnumeratePeds() do
+            SetPedCanRagdoll(ped, true)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:ObliterateNearby', function(duration)
+    exports.helpers:DisplayMessage("OBLITERATION")
+
+    Citizen.CreateThread(function()
+        RequestNamedPtfxAsset("scr_xm_orbital")
+        RequestNamedPtfxAsset("scr_xm_orbital_blast")
+
+        local count = 5
+
+        for ped in exports.helpers:EnumeratePeds() do
+            if not IsPedAPlayer(ped) then
+                local pedPos = GetEntityCoords(ped, false)
+
+                UseParticleFxAsset("scr_xm_orbital")
+                StartNetworkedParticleFxNonLoopedAtCoord(
+                        "scr_xm_orbital_blast",
+                        pedPos.x, pedPos.y, pedPos.z,
+                        .0, .0, .0,
+                        1., false, false, false
+                )
+                PlaySoundFromCoord(-1, "DLC_XM_Explosions_Orbital_Cannon", pedPos.x, pedPos.y, pedPos.z,0, true, 0, false)
+                AddExplosion(pedPos.x, pedPos.y, pedPos.z, 9, 100., true, false, 3.)
+                SetEntityHealth(ped, 0)
+
+                count = count - 1
+                if count == 0 then
+                    count = 5
+                    Citizen.Wait(0)
+                end
+            end
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:Phones', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Whose phone is ringing?")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            for ped in exports.helpers:EnumeratePeds() do
+                if not IsPedRingtonePlaying(ped) then
+                    PlayPedRingtone("Remote_Ring", ped, true)
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+
+        for ped in exports.helpers:EnumeratePeds() do
+            StopPedRingtone(ped)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:RagdollOnTouch', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("You've got a sensitive touch")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            for ped in exports.helpers:EnumeratePeds() do
+                SetPedRagdollOnCollision(ped, true)
+            end
+
+            Citizen.Wait(0)
+        end
+
+        for ped in exports.helpers:EnumeratePeds() do
+            SetPedRagdollOnCollision(ped, false)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:SlipperyPeds', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Can't tie my shoes")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        while true do
+            if exitMethod then
+                break
+            end
+
+            for ped in exports.helpers:EnumeratePeds() do
+                if GetEntitySpeed(ped) > 5.2 then
+                    SetPedToRagdoll(ped, 3000, 3000, 0, true, true, false)
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:Spawn:CompanionCats', function(duration)
+    local CATS_AMOUNT = 3
+    exports.helpers:DisplayMessage("You've got a friend in me")
+
+    Citizen.CreateThread(function()
+        local companionModel = "a_c_cat_01"
+        local playerPed = PlayerPedId()
+
+        local _, relationshipGroup = AddRelationshipGroup("_FAN_CATS")
+        SetRelationshipBetweenGroups(0, relationshipGroup, "PLAYER")
+        SetRelationshipBetweenGroups(0, "PLAYER", relationshipGroup)
+
+        local playerPos = GetEntityCoords(playerPed, false)
+
+        for i = 1, CATS_AMOUNT do
+            local companionPed = CreatePoolPed(28, companionModel, playerPos.x, playerPos.y, playerPos.z, GetEntityHeading(playerPed))
+
+            SetPedRelationshipGroupHash(companionPed, relationshipGroup)
+            SetPedAsGroupMember(companionPed, GetPlayerGroup(PlayerId()))
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:Spawn:CompanionChimp', function(duration)
+    exports.helpers:DisplayMessage("You've got a friend in me")
+
+    Citizen.CreateThread(function()
+        local companionModel = "a_c_chimp"
+        local playerPed = PlayerPedId()
+
+        local _, relationshipGroup = AddRelationshipGroup("_COMPANION_CHIMP")
+        SetRelationshipBetweenGroups(0, relationshipGroup, "PLAYER")
+        SetRelationshipBetweenGroups(0, "PLAYER", relationshipGroup)
+
+        local playerPos = GetEntityCoords(playerPed, false)
+
+        local companionPed = CreatePoolPed(28, companionModel, playerPos.x, playerPos.y, playerPos.z, GetEntityHeading(playerPed))
+
+        if IsPedInAnyVehicle(playerPed, false) then
+            SetPedIntoVehicle(companionPed, GetVehiclePedIsIn(playerPed, false), -2)
+        end
+
+        SetPedSuffersCriticalHits(companionPed, false)
+        SetPedHearingRange(companionPed, 9999.)
+
+        SetPedRelationshipGroupHash(companionPed, relationshipGroup)
+        SetPedAsGroupMember(companionPed, GetPlayerGroup(PlayerId()))
+
+        SetPedCombatAttributes(companionPed, 5, true)
+        SetPedCombatAttributes(companionPed, 46, true)
+
+        SetPedAccuracy(companionPed, 100)
+        SetPedFiringPattern(companionPed, "FIRING_PATTERN_FULL_AUTO")
+
+        GiveWeaponToPed(companionPed, "WEAPON_PISTOL", 9999, false, true)
+        GiveWeaponToPed(companionPed, "WEAPON_CARBINERIFLE", 9999, false, true)
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:Spawn:CompanionChop', function(duration)
+    exports.helpers:DisplayMessage("You've got a friend in me")
+
+    Citizen.CreateThread(function()
+        local companionModel = "a_c_chop"
+        local playerPed = PlayerPedId()
+
+        local _, relationshipGroup = AddRelationshipGroup("_COMPANION_CHOP")
+        SetRelationshipBetweenGroups(0, relationshipGroup, "PLAYER")
+        SetRelationshipBetweenGroups(0, "PLAYER", relationshipGroup)
+
+        local playerPos = GetEntityCoords(playerPed, false)
+
+        local companionPed = CreatePoolPed(28, companionModel, playerPos.x, playerPos.y, playerPos.z, GetEntityHeading(playerPed))
+
+
+        SetPedRelationshipGroupHash(companionPed, relationshipGroup)
+        SetPedAsGroupMember(companionPed, GetPlayerGroup(PlayerId()))
+
+        SetPedHearingRange(companionPed, 9999.)
+        SetPedCombatAttributes(companionPed, 0, false)
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:Spawn:DancingApes', function(duration)
+    local APE_AMOUNT = 3
+    exports.helpers:DisplayMessage("Dancing Apes")
+
+    Citizen.CreateThread(function()
+        local animationDict = "missfbi3_sniping"
+        local playerPed = PlayerPedId()
+
+        local _, relationshipGroup = AddRelationshipGroup("_DANCING_APES")
+        SetRelationshipBetweenGroups(0, relationshipGroup, "PLAYER")
+        SetRelationshipBetweenGroups(0, "PLAYER", relationshipGroup)
+
+        local playerPos = GetEntityCoords(playerPed, false)
+
+        RequestAnimDict(animationDict)
+
+        for i = 1, APE_AMOUNT do
+            local apePed = CreatePoolPed(
+                    28,
+                    math.random(0, 1) == 1 and "a_c_chimp" or "a_c_rhesus",
+                    playerPos.x, playerPos.y, playerPos.z,
+                    GetEntityHeading(playerPed)
+            )
+            SetPedRelationshipGroupHash(apePed, relationshipGroup)
+
+            if IsPedInAnyVehicle(playerPed, false) then
+                SetPedIntoVehicle(apePed, GetVehiclePedIsIn(playerPed, false), -2)
+            end
+
+            SetPedCanRagdoll(apePed, false)
+            SetPedSuffersCriticalHits(apePed, false)
+
+            TaskPlayAnim(apePed, animationDict, "dance_m_default", 4., -4., -1, 1, 0., false, false, false)
+            Citizen.Wait(0)
+
+            SetPedConfigFlag(apePed, 292, true)
+        end
+
+        RemoveAnimDict(animationDict)
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:Spawn:Juggernaut', function(duration)
+    exports.helpers:DisplayMessage("I am the juggernaut, *****")
+
+    Citizen.CreateThread(function()
+        local enemyModel = "u_m_y_juggernaut_01"
+        local weaponHash = "weapon_minigun"
+
+        local hostilePed = CreateHostilePed(enemyModel, weaponHash)
+        SetPedArmour(hostilePed, 250)
+        SetPedAccuracy(hostilePed, 3)
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:Spawn:RoastingLamar', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Yee yee ass haircut")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        ---@type integer
+        local lastTick = 0
+        local lamarModel = "ig_lamardavis"
+        local playerPed = PlayerPedId()
+
+        local _, relationshipGroup = AddRelationshipGroup("_ROASTING_LAMAR")
+        SetRelationshipBetweenGroups(0, relationshipGroup, "PLAYER")
+        SetRelationshipBetweenGroups(0, "PLAYER", relationshipGroup)
+
+        local playerPos = GetEntityCoords(playerPed, false)
+
+        RequestModel(lamarModel)
+        while not HasModelLoaded(lamarModel) do
+            Citizen.Wait(100)
+        end
+
+        local lamarPed = CreatePed(4, lamarModel, playerPos.x, playerPos.y, playerPos.z, GetEntityHeading(playerPed), true, false)
+        SetModelAsNoLongerNeeded(lamarModel)
+
+        if IsPedInAnyVehicle(playerPed, false) then
+            SetPedIntoVehicle(lamarPed, GetVehiclePedIsIn(playerPed, false), -2)
+        end
+
+        SetPedRelationshipGroupHash(lamarPed, relationshipGroup)
+        SetPedAsGroupMember(lamarPed, GetPlayerGroup(PlayerId()))
+        SetEntityInvincible(lamarPed, true)
+
+        PlayPedAmbientSpeechNative(lamarPed, "GENERIC_HI", "SPEECH_PARAMS_FORCE_SHOUTED", 1)
+        Citizen.Wait(4000)
+        while true do
+            if exitMethod then
+                break
+            end
+
+            local currentTick = GetGameTimer()
+            if lastTick < currentTick - 500 then
+                lastTick = currentTick
+                if DoesEntityExist(lamarPed) then
+                    PlayPedAmbientSpeechNative(lamarPed, "GENERIC_INSULT_MED", "SPEECH_PARAMS_FORCE_SHOUTED")
+                end
+            end
+
+            Citizen.Wait(0)
+            end
+
+        if DoesEntityExist(lamarPed) then
+            if not IsPedDeadOrDying(lamarPed, true) then
+                RequestAnimDict("mp_player_int_upperfinger")
+
+                TaskTurnPedToFaceEntity(lamarPed, playerPed, 1000)
+                TaskLookAtEntity(lamarPed, playerPed, 1000, 2048, 3)
+                Citizen.Wait(1000)
+                TaskPlayAnim(lamarPed, "mp_player_int_upperfinger", "mp_player_int_finger_02", 8., -1., 1000, 1, 0., false, false, false)
+                Citizen.Wait(2000)
+
+                if IsPedInAnyVehicle(lamarPed, false) then
+                    local lamarVehicle = GetVehiclePedIsIn(lamarPed, false)
+                    TaskLeaveVehicle(lamarPed, lamarVehicle, 4160)
+                end
+            end
+
+            SetPedAsNoLongerNeeded(lamarPed)
+            SetEntityInvincible(lamarPed, false)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:Spawn:SpaceRanger', function(duration)
+    exports.helpers:DisplayMessage("He comes from space!")
+
+    Citizen.CreateThread(function()
+        local enemyModel = "u_m_y_rsranger_01"
+        local weaponHash = "weapon_raycarbine"
+
+        local hostilePed = CreateHostilePed(enemyModel, weaponHash)
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:Speech:Friendly', function(duration)
+    local speechesFriendly = { "GENERIC_HI", "GENERIC_HOWS_IT_GOING", "GENERIC_THANKS" }
+
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Why's everyone so friendly?")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        ---@type integer
+        local lastTick = 0
+        while true do
+            if exitMethod then
+                break
+            end
+
+            local currentTick = GetGameTimer()
+            if lastTick < currentTick - 1000 then
+                lastTick = currentTick
+                for ped in exports.helpers:EnumeratePeds() do
+                    if not IsPedAPlayer(ped) and IsPedHuman(ped) then
+                        local randomSpeech = math.random(1, #speechesFriendly)
+                        PlayPedAmbientSpeechNative(ped, speechesFriendly[randomSpeech], "SPEECH_PARAMS_FORCE_SHOUTED")
+                    end
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:Speech:Kifflom', function(duration)
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Kifflom!")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        ---@type integer
+        local lastTick = 0
+        while true do
+            if exitMethod then
+                break
+            end
+
+            local currentTick = GetGameTimer()
+            if lastTick < currentTick - 1000 then
+                lastTick = currentTick
+                for ped in exports.helpers:EnumeratePeds() do
+                    if not IsPedAPlayer(ped) and IsPedHuman(ped) then
+                        PlayPedAmbientSpeechNative(ped, "KIFFLOM_GREET", "SPEECH_PARAMS_FORCE_SHOUTED")
+                    end
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:Speech:Unfriendly', function(duration)
+    local speechesUnfriendly = { "GENERIC_CURSE_HIGH", "GENERIC_INSULT_HIGH", "GENERIC_WAR_CRY" }
+
+    local exitMethod = false
+    exports.helpers:DisplayMessage("Why's everyone so unfriendly?")
+
+    Citizen.SetTimeout(duration * 1000, function() exitMethod = true end)
+    Citizen.CreateThread(function()
+        ---@type integer
+        local lastTick = 0
+        while true do
+            if exitMethod then
+                break
+            end
+
+            local currentTick = GetGameTimer()
+            if lastTick < currentTick - 1000 then
+                lastTick = currentTick
+                for ped in exports.helpers:EnumeratePeds() do
+                    if not IsPedAPlayer(ped) and IsPedHuman(ped) then
+                        local randomSpeech = math.random(1, #speechesUnfriendly)
+                        PlayPedAmbientSpeechNative(ped, speechesUnfriendly[randomSpeech], "SPEECH_PARAMS_FORCE_SHOUTED")
+                    end
+                end
+            end
+
+            Citizen.Wait(0)
+        end
+    end)
+end)
+
+RegisterNetEvent('Chaos:Peds:StopAndStare', function(duration)
+    exports.helpers:DisplayMessage("Didn't your mother teach you not to stare?")
+
+    Citizen.CreateThread(function()
+        local playerPed = PlayerPedId()
+        for ped in exports.helpers:EnumeratePeds() do
+            if not IsPedAPlayer(ped) then
+                if IsPedInAnyVehicle(ped, true) then
+                    local pedVehicle = GetVehiclePedIsIn(ped, true)
+                    TaskLeaveVehicle(ped, pedVehicle, 256)
+                    BringVehicleToHalt(pedVehicle, 0.1, 10, false)
+                end
+
+                if ped ~= playerPed then
+                    TaskTurnPedToFaceEntity(ped, playerPed, -1)
+                    TaskLookAtEntity(ped, playerPed, -1, 2048, 3)
+                end
+            end
         end
     end)
 end)

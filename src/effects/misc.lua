@@ -915,6 +915,7 @@ RegisterNetEvent('Chaos:Misc:VehicleRain', function(duration)
     Citizen.CreateThread(function()
         ---@type integer
         local lastTick = 0
+        local createdVehicles = {}
         while true do
             if exitMethod then
                 break
@@ -922,7 +923,7 @@ RegisterNetEvent('Chaos:Misc:VehicleRain', function(duration)
 
             local currentTick = GetGameTimer()
 
-            if currentTick > lastTick + 500 then
+            if currentTick > lastTick + 1000 then
                 local playerPos = GetEntityCoords(PlayerPedId())
                 lastTick = currentTick
 
@@ -949,9 +950,15 @@ RegisterNetEvent('Chaos:Misc:VehicleRain', function(duration)
 
                 SetVehicleTyresCanBurst(randomVehicle, math.random(0, 1) == 1 and true or false)
                 SetVehicleWindowTint(randomVehicle, math.random(0, 6))
+
+                table.insert(createdVehicles, randomVehicle)
             end
 
             Citizen.Wait(0)
+        end
+
+        for i = 1, #createdVehicles do
+            SetVehicleAsNoLongerNeeded(createdVehicles[i])
         end
     end)
 end)

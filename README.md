@@ -13,3 +13,11 @@ I never used Lua nor modded FiveM until less than a month ago. This project was 
 - likely to crash
 
 The commit messages are also undescriptive.
+
+# Installation
+1. Clone the repository/download it as zip
+2. Make sure `ChaosMod` and `helpers` folders are somewhere in the server-data folders
+3. Either in server.cfg or in the console, write `ensure ChaosMod` and `ensure helpers`
+4. You're ready! Start the mod with /startchaos and stop it with /stopchaos
+
+You can also use /setduration <number> to set the duration for normal-length effects, /setshortduration <number> to set the duration for short-length effects, and /setinterval <number> to set the interval for when new effects should come in.
